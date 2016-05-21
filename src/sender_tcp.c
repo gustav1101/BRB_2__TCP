@@ -254,7 +254,7 @@ int main (int argc, char *argv[]) {
     err = write(sockfd, buff, SHA_DIGEST_LENGTH*2+1);
     if( err != SHA_DIGEST_LENGTH*2+1 )
     {
-	printf(SHA1_ERROR);
+	printf("Error when sending SHA1");
 	return 1;
     }
 
@@ -263,10 +263,10 @@ int main (int argc, char *argv[]) {
 
     /****** RECEIVE SHA COMPARE RESULT ******/
 
-    timeout.tv_sec = WAIT;
+    /*timeout.tv_sec = WAIT;
     timeout.tv_usec = 0;
     // Set socket options for a possible timeout
-    setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
+    setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));*/
 
     //receive sha comp result
     err = read(sockfd, buff, BUFFERSIZE);

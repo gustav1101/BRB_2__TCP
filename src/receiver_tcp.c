@@ -265,7 +265,7 @@ int main (int argc, char *argv[]) {
     /******* RECEIVE SHA-1 ********/
         
     //receive sha-1
-    err = read(sockfd, buff, BUFFERSIZE);
+    err = read(newsockfd, buff, BUFFERSIZE);
 
     if(err != SHA_DIGEST_LENGTH*2+1 )
     {
@@ -294,7 +294,7 @@ int main (int argc, char *argv[]) {
 
 
     //parse Sha-value
-    for(i = 1; i < SHA_DIGEST_LENGTH*2+1; i++)
+    for(i = 1; i<SHA_DIGEST_LENGTH*2+1; i++)
     {
 	recShaVal[i-1] = (unsigned char)buff[i];
     }
@@ -330,7 +330,7 @@ int main (int argc, char *argv[]) {
 
 
     //and away!
-    err = write(sockfd, buff, 2);
+    err = write(newsockfd, buff, 2);
     if (err < 0) {
 	printf("sendto-Error");
 	exit(1);
