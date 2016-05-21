@@ -23,7 +23,7 @@ int main (int argc, char *argv[]) {
     int err;     //return value of bind for error handling
     struct sockaddr_in serv_addr, cli_addr/*, from*/;  //addresses for receiving and transmitting
     //socklen_t fromlen; //length of source address struct
-    int portno;
+    //int portno;
 	
     unsigned char headerstate;  //for parsing the id of each package
 
@@ -84,7 +84,7 @@ int main (int argc, char *argv[]) {
     // Clearing
     bzero((char*) &serv_addr, sizeof(serv_addr));
 
-    portno = htons(atoi(argv[1]));
+    //portno = htons(atoi(argv[1]));
     
 
     
@@ -244,7 +244,10 @@ int main (int argc, char *argv[]) {
 	    
 	for(i = 0; i<err-5; i++)
 	{
-	    *(shaPtr++) = filebuffer[i];
+	    if(shaPtr != shaBuffer + filelength)
+	    {
+		*(shaPtr++) = filebuffer[i];
+	    }
 	}
 
 
@@ -341,8 +344,8 @@ int main (int argc, char *argv[]) {
 
 
     // Close Socket
-    close(sockfd);
     close(newsockfd);
+    close(sockfd);
     fclose(file);
     free(filename);
     free(shaBuffer);

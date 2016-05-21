@@ -233,6 +233,9 @@ int main (int argc, char *argv[]) {
 
     /******* SHA-1 ********/
 
+    //if we don't do this then valgrind on the receiver causes the program to slow down too much to still get this
+    sleep(1);
+    
     printf("Calculating Sha1...\n");
 
     //calculate sha-1
@@ -263,10 +266,10 @@ int main (int argc, char *argv[]) {
 
     /****** RECEIVE SHA COMPARE RESULT ******/
 
-    /*timeout.tv_sec = WAIT;
+    timeout.tv_sec = WAIT;
     timeout.tv_usec = 0;
     // Set socket options for a possible timeout
-    setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));*/
+    setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
 
     //receive sha comp result
     err = read(sockfd, buff, BUFFERSIZE);
