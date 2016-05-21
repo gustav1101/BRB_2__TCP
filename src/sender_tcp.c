@@ -20,8 +20,9 @@
 int main (int argc, char *argv[]) {
 	
     int sockfd, err;
-    socklen_t length;
-    struct sockaddr_in to, from;
+    //int portno;
+    //socklen_t clilength, length;
+    struct sockaddr_in serv_addr;
     char buff[BUFFERSIZE];  //buffer for receiving messages (and later for sending as well)
     unsigned short nlength; //name length
     char *name;  //name of file
@@ -101,12 +102,16 @@ int main (int argc, char *argv[]) {
     name = basename(argv[3]);
 
     nlength = strlen(name);		
-	
+
+
+
+
+    
     /******** SOCKET CREATION ***********/
     // AF_INET --> Protocol Family
     // SOCK_DGRAM --> Socket Type (UDP)
     // 0 --> Protocol Field of the IP-Header (0, TCP and UDP gets entered automatically)
-    sockfd = socket(AF_INET, SOCK_DGRAM, 0);
+    sockfd = socket(AF_INET, SOCK_STREAM, 0);
 
     if (sockfd < 0) {
 	printf("Socket-Error");
@@ -115,26 +120,39 @@ int main (int argc, char *argv[]) {
 
     // Clearing
     bzero(buff, BUFFERSIZE);
+    bzero((char*) &serv_addr, sizeof(serv_addr));
 
     // To satisfy the MTU of a PPPoE-Connection (max package size)
     if ((bufferlength = nlength + 7) > BUFFERSIZE) {
 	printf("Exceeded maximum package size.");
-	exit(1);
+	return 1;
     }
 
-    //	buff = calloc(bufferlength, 1);
-	
     //CREATE TARGET ADDRESS
     // Assign Protocol Family
-    to.sin_family = AF_INET;
+    serv_addr.sin_family = AF_INET;
     // Assign Port
-    to.sin_port = htons(atoi(argv[2]));
-    // Length of the Address Structure
-    length = sizeof(struct sockaddr_in);
+    serv_addr.sin_port = htons(atoi(argv[2]));
     // Address of the Receiver (Dotted to Network)
-    to.sin_addr.s_addr = inet_addr(argv[1]);
+    serv_addr.sin_addr.s_addr = inet_addr(argv[1]);
+	
+    // Length of the Address Structure
+    //length = sizeof(struct sockaddr_in);
+
+
+
+    if(connect(sockfd, (struct sockaddr*) &serv_addr, sizeof(serv_addr))<0)
+    {
+	printf(address_error);
+	return 1;
+    }
+    
+    
+			       
+    
 	
 
+    
     /********* HEADER SENDING *********/
     prepareHeader(buff, nlength, name, filelength);
     printf(filename_str, name);
@@ -143,7 +161,7 @@ int main (int argc, char *argv[]) {
     printf("Standby for sending of header...\n");
         
     //send
-    err = sendto(sockfd, buff, bufferlength, 0, (struct sockaddr *)&to, length);
+    err = write(sockfd, buff, bufferlength);
     //handle sending errors
     if (err < 0) {
 	printf("sendto-Error");
@@ -196,7 +214,7 @@ int main (int argc, char *argv[]) {
 
 	    //Send data.
 
-	    err = sendto(sockfd, buff, readbytes+5, 0, (struct sockaddr *)&to, length);
+	    err = write(sockfd, buff, readbytes+5);
 	    if( err != readbytes+5 )
 	    {
 		printf("Sending data package %d failed",seqNr);
@@ -233,7 +251,7 @@ int main (int argc, char *argv[]) {
 
     //transmit sha-1
 	
-    err = sendto(sockfd, buff, SHA_DIGEST_LENGTH*2+1, 0, (struct sockaddr *)&to, length);
+    err = write(sockfd, buff, SHA_DIGEST_LENGTH*2+1);
     if( err != SHA_DIGEST_LENGTH*2+1 )
     {
 	printf(SHA1_ERROR);
@@ -251,7 +269,7 @@ int main (int argc, char *argv[]) {
     setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
 
     //receive sha comp result
-    err = recvfrom(sockfd, buff, sizeof(buff), 0, (struct sockaddr *)&from, &length);
+    err = read(sockfd, buff, BUFFERSIZE);
     if (err != 2)
     {
 	printf(timeout_error);

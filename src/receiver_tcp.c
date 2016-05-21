@@ -18,11 +18,12 @@
 
 int main (int argc, char *argv[]) {
 
-    int sockfd;  //socket file descriptor
-    int length;  //length of address (of to)
+    int sockfd, newsockfd;  //socket file descriptor
+    socklen_t cli_length;  //length of address
     int err;     //return value of bind for error handling
-    struct sockaddr_in to, from;  //addresses for receiving and transmitting
-    socklen_t fromlen; //length of source address struct
+    struct sockaddr_in serv_addr, cli_addr/*, from*/;  //addresses for receiving and transmitting
+    //socklen_t fromlen; //length of source address struct
+    int portno;
 	
     unsigned char headerstate;  //for parsing the id of each package
 
@@ -66,35 +67,59 @@ int main (int argc, char *argv[]) {
     // AF_INET --> Protocol Family
     // SOCK_DGRAM --> Socket Type (UDP)
     // 0 --> Protocol Field of the IP-Header (0, TCP and UDP gets entered automatically)
-    sockfd = socket(AF_INET, SOCK_DGRAM, 0);
 
+
+    //portno = htons(atoi(argv[1]));
+    
+    sockfd = socket(AF_INET, SOCK_STREAM, 0);
     if (sockfd < 0) {
-	printf("Socket-Error");
-	exit(1);
+	printf(address_error);
+	return 1;
     }
 
-    length = sizeof(to);
+
+    
+    
+    
     // Clearing
-    bzero(&to, length);
+    bzero((char*) &serv_addr, sizeof(serv_addr));
 
+    portno = htons(atoi(argv[1]));
+    
 
+    
     //CREATE TARGET ADDRESS
     // Assign Protocol Family
-    to.sin_family = AF_INET;
+    serv_addr.sin_family = AF_INET;
     // Assign Port
-    to.sin_port = htons(atoi(argv[1]));
-    to.sin_addr.s_addr = inet_addr("127.0.0.1");
+    serv_addr.sin_port = htons(atoi(argv[1]));
+    serv_addr.sin_addr.s_addr = inet_addr("127.0.0.1");
 
     //bind socket to prepare receiving
-    err = bind(sockfd, (struct sockaddr *) &to, length);
+    err = bind(sockfd, (struct sockaddr *) &serv_addr, sizeof(serv_addr));
 
     if (err < 0) {
 	printf("Binding-Error");
 	exit(1);
     }
 
+
+    listen(sockfd, 1);
+
+    cli_length = sizeof(cli_addr);
+    
+    newsockfd = accept(sockfd, (struct sockaddr *) &cli_addr, &cli_length);
+    if(newsockfd < 0)
+    {
+	printf(address_error);
+	return 1;
+    }
+
+
+
+    
     // Length of the Source Address Structure
-    fromlen = sizeof(struct sockaddr_in);
+    //fromlen = sizeof(struct sockaddr_in);
 
 
     /****** RECEIVE HEAD *******/
@@ -104,8 +129,10 @@ int main (int argc, char *argv[]) {
 
     // Set socket options for a possible timeout
     setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
-	
-    if ((err = recvfrom(sockfd, buff, BUFFERSIZE, 0, (struct sockaddr *)&from, &fromlen)) < 0) {
+
+
+    err = read(newsockfd, buff, BUFFERSIZE);
+    if (err< 0) {
 	printf(timeout_error);
 	exit(1);
     }
@@ -192,7 +219,7 @@ int main (int argc, char *argv[]) {
      * shaBuffer to the hard drive.
      */
     do {
-	err = recvfrom(sockfd, buff, BUFFERSIZE, 0, (struct sockaddr *)&from, &fromlen);
+	err = read(newsockfd, buff, BUFFERSIZE);
 
 
 	//read header state
@@ -238,7 +265,7 @@ int main (int argc, char *argv[]) {
     /******* RECEIVE SHA-1 ********/
         
     //receive sha-1
-    err = recvfrom(sockfd, buff, BUFFERSIZE, 0, (struct sockaddr *)&from, &fromlen);
+    err = read(sockfd, buff, BUFFERSIZE);
 
     if(err != SHA_DIGEST_LENGTH*2+1 )
     {
@@ -303,7 +330,7 @@ int main (int argc, char *argv[]) {
 
 
     //and away!
-    err = sendto(sockfd, buff, 2, 0, (struct sockaddr *)&from,fromlen);
+    err = write(sockfd, buff, 2);
     if (err < 0) {
 	printf("sendto-Error");
 	exit(1);
@@ -315,6 +342,7 @@ int main (int argc, char *argv[]) {
 
     // Close Socket
     close(sockfd);
+    close(newsockfd);
     fclose(file);
     free(filename);
     free(shaBuffer);
