@@ -1,6 +1,7 @@
 CFLAGS = -Wall -std=c99 -pedantic -D_POSIX_SOURCE -g -lssl -lcrypto
 PORT = 25565
-ADDRESS = 127.0.0.1
+ADDRESS = 192.168.239.128
+#127.0.0.1
 FILEPATH = files/testfile
 SRCPATH = src/
 BINPATH = bin/

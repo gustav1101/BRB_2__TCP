@@ -25,7 +25,7 @@ int main (int argc, char *argv[]) {
     //socklen_t fromlen; //length of source address struct
     //int portno;
 	
-    unsigned char headerstate;  //for parsing the id of each package
+    //unsigned char headerstate;  //for parsing the id of each package
 
     char buff[BUFFERSIZE];  //mesage buffer
 	
@@ -38,8 +38,8 @@ int main (int argc, char *argv[]) {
     char filepath[MAXPATHLENGTH];  //path to file in received folder with file name
     FILE* file;  //File stream to write file into
     unsigned long seqNr;  //number of packet received in data transmission
-    unsigned long readSeqNr;  //sequence number transmitted by sender
-    char *filebuffer; //holds the file content to write on file
+    //unsigned long readSeqNr;  //sequence number transmitted by sender
+    //char *filebuffer; //holds the file content to write on file
 
     char *shaBuffer;  //holds the complete file payload accross all data packages
     char *shaPtr;  //for convenience, points to the next character to be written in shaBuffer
@@ -77,8 +77,12 @@ int main (int argc, char *argv[]) {
 	return 1;
     }
 
-
-    
+    if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &(int){ 1 }, sizeof(int)) < 0)
+    {
+	printf("Socket could not be reused");
+	return 1;
+	//error("setsockopt(SO_REUSEADDR) failed");
+    }
     
     
     // Clearing
@@ -93,7 +97,7 @@ int main (int argc, char *argv[]) {
     serv_addr.sin_family = AF_INET;
     // Assign Port
     serv_addr.sin_port = htons(atoi(argv[1]));
-    serv_addr.sin_addr.s_addr = inet_addr("127.0.0.1");
+    serv_addr.sin_addr.s_addr = INADDR_ANY;//inet_addr(/*INADDR_ANY*/"127.0.0.1");
 
     //bind socket to prepare receiving
     err = bind(sockfd, (struct sockaddr *) &serv_addr, sizeof(serv_addr));
@@ -138,12 +142,12 @@ int main (int argc, char *argv[]) {
     }
 
     //check if valid package received
-    headerstate = (unsigned char) buff[0];
+    /*headerstate = (unsigned char) buff[0];
     if(headerstate != HEADER_T)
     {
 	printf(packet_error);
 	exit(1);
-    }
+	}*/
 
     //go and parse the header
     parseHeader(buff, &filenamelength, &filename, &filelength);
@@ -223,38 +227,38 @@ int main (int argc, char *argv[]) {
 
 
 	//read header state
-	headerstate = (unsigned char) buff[0];
+	/*headerstate = (unsigned char) buff[0];
 	if(headerstate != DATA_T)
 	{
 	    printf(packet_error);
 	    printf("Wrong Headerstate in file transfer\n");
 	    exit(1);
-	}
+	    }*/
 
 	//read sequence number
-	readSeqNr =  (unsigned long) (  ( (unsigned char)buff[1] ) | ( ((unsigned char)buff[2]) << 8 ) | ( ((unsigned char)buff[3]) << 16 ) | ( ((unsigned char)buff[4]) << 24 ) );
+	/*readSeqNr =  (unsigned long) (  ( (unsigned char)buff[1] ) | ( ((unsigned char)buff[2]) << 8 ) | ( ((unsigned char)buff[3]) << 16 ) | ( ((unsigned char)buff[4]) << 24 ) );
 	if(seqNr != readSeqNr)
 	{
 	    printf(order_error, readSeqNr, seqNr);
 	    return 1;
-	}
+	    }*/
 
 	//set filebuffer to where the real buffer starts
-	filebuffer = buff+5;
+	//filebuffer = buff;
 	    
-	for(i = 0; i<err-5; i++)
+	for(i = 0; i<err; i++)
 	{
 	    if(shaPtr != shaBuffer + filelength)
 	    {
-		*(shaPtr++) = filebuffer[i];
+		*(shaPtr++) = buff[i];
 	    }
 	}
 
 
-	printf("Received %d payload bytes in packet %lu, writing now\n",err-5, seqNr);
+	printf("Received %d payload bytes in packet %lu, writing now\n",err, seqNr);
 
 	seqNr++;
-	receivedBytes += err - 5;  //received bytes must only store the number of bytes belonging to the data, not the head of the package
+	receivedBytes += err;  //received bytes must only store the number of bytes belonging to the data, not the head of the package
 
     }while(receivedBytes != filelength); //once we have received everything we're done
 
@@ -270,7 +274,7 @@ int main (int argc, char *argv[]) {
     //receive sha-1
     err = read(newsockfd, buff, BUFFERSIZE);
 
-    if(err != SHA_DIGEST_LENGTH*2+1 )
+    if(err != SHA_DIGEST_LENGTH*2 )
     {
 	printf(SHA1_ERROR);
 	printf("Wrong Sha-Package length\n");
@@ -279,13 +283,13 @@ int main (int argc, char *argv[]) {
 
 
     //receive header
-    headerstate = (unsigned char) buff[0];
+    /*headerstate = (unsigned char) buff[0];
     if(headerstate != SHA1_T)
     {
 	printf(packet_error);
 	printf("Wrong ID\n");
 	exit(1);
-    }
+	}*/
 
 	
     recShaVal = calloc(SHA_DIGEST_LENGTH*2+1,1);
@@ -297,9 +301,9 @@ int main (int argc, char *argv[]) {
 
 
     //parse Sha-value
-    for(i = 1; i<SHA_DIGEST_LENGTH*2+1; i++)
+    for(i = 0; i<SHA_DIGEST_LENGTH*2; i++)
     {
-	recShaVal[i-1] = (unsigned char)buff[i];
+	recShaVal[i] = (unsigned char)buff[i];
     }
     recShaVal[SHA_DIGEST_LENGTH*2] = '\0';
 
@@ -326,14 +330,15 @@ int main (int argc, char *argv[]) {
     /******* SEND SHA COMPARE RESULT ******/
 
     //prepare id
-    buff[0] = SHA1_CMP_T;
+    //buff[0] = SHA1_CMP_T;
 
     //prepare compare result
-    buff[1] = sha1_CMP;
+    buff[0] = sha1_CMP;
 
+    //sleep(1);
 
     //and away!
-    err = write(newsockfd, buff, 2);
+    err = write(newsockfd, buff, 1);
     if (err < 0) {
 	printf("sendto-Error");
 	exit(1);
@@ -363,16 +368,16 @@ void parseHeader(char* buffer, unsigned short *readnlength, char **readrealname,
     char *readname;
 
     
-    *readnlength = (unsigned short) (  ((unsigned char) buffer[1] ) | ( ((unsigned char) buffer[2]) << 8 ) );
+    *readnlength = (unsigned short) (  ((unsigned char) buffer[0] ) | ( ((unsigned char) buffer[1]) << 8 ) );
     
    
     readname = calloc(*readnlength+1,1);
 
     
     //read name:
-    for(i = 3; i<*readnlength+3; i++)
+    for(i = 2; i<*readnlength+2; i++)
     {
-	readname[i-3] = buffer[i];
+	readname[i-2] = buffer[i];
     }
 
 

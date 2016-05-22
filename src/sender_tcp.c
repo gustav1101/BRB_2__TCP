@@ -33,7 +33,7 @@ int main (int argc, char *argv[]) {
     FILE* file;              //file stream
     struct stat filebuf;     //file stats
     unsigned int seqNr;     //number of package to be sent
-    char filedatabuff[BUFFERSIZE-5];      //contains data of file
+    //char filedatabuff[BUFFERSIZE-5];      //contains data of file
     int i;  //magic number that makes the program work.
     char *shaBuffer;  //holds the complete file across all data packages
     char *shaVal;   //holds the actual sha1-value
@@ -122,11 +122,7 @@ int main (int argc, char *argv[]) {
     bzero(buff, BUFFERSIZE);
     bzero((char*) &serv_addr, sizeof(serv_addr));
 
-    // To satisfy the MTU of a PPPoE-Connection (max package size)
-    if ((bufferlength = nlength + 7) > BUFFERSIZE) {
-	printf("Exceeded maximum package size.");
-	return 1;
-    }
+
 
     //CREATE TARGET ADDRESS
     // Assign Protocol Family
@@ -154,6 +150,14 @@ int main (int argc, char *argv[]) {
 
     
     /********* HEADER SENDING *********/
+
+    // To satisfy the MTU of a PPPoE-Connection (max package size)
+    if ((bufferlength = nlength + 6) > BUFFERSIZE) {
+	printf("Exceeded maximum package size.");
+	return 1;
+    }
+
+
     prepareHeader(buff, nlength, name, filelength);
     printf(filename_str, name);
     printf(filesize_str,filelength);
@@ -187,35 +191,34 @@ int main (int argc, char *argv[]) {
 	
     printf("Commencing file transmission\n");
     do {
-	buff[0] = DATA_T;  //Yes, we're sending data!
+	//buff[0] = DATA_T;  //Yes, we're sending data!
 
 	//put sequence number into next 4 bytes of buffer
-	for(i = 1; i < 5; i++)
+	/*for(i = 1; i < 5; i++)
 	{
 		
 	    buff[i] = (char) ( (seqNr >> ( (i-1)*8) ) & 0xff );
-	}
+	    }*/
 
 	    
 
 	//check how many files could be read. Is less than BUFFERSIZE-5 when eof is reached
-	readbytes = fread(filedatabuff, 1, BUFFERSIZE-5, file);
+	readbytes = fread(buff, 1, BUFFERSIZE, file);
 
 
 	//transmit if we have any bytes to transmit
 	if(readbytes != 0)
 	{
 	    //put filebuffer into real buffer. Can't concat because buff is not really a string and can have null anywhere...
-	    for(i = 5; i<readbytes+5; i++)
+	    for(i = 0; i<readbytes; i++)
 	    {
-		buff[i] = filedatabuff[i-5];
-		*(shaPtr++)=filedatabuff[i-5];
+		*(shaPtr++)=buff[i];
 	    }
 
 	    //Send data.
 
-	    err = write(sockfd, buff, readbytes+5);
-	    if( err != readbytes+5 )
+	    err = write(sockfd, buff, readbytes);
+	    if( err != readbytes )
 	    {
 		printf("Sending data package %d failed",seqNr);
 		return 1;
@@ -225,7 +228,7 @@ int main (int argc, char *argv[]) {
 	}
 	seqNr++;
 	    
-    }while(readbytes == BUFFERSIZE-5);  //once readbytes is less than BUFFERSIZE-5 eof was reached and we're finished.
+    }while(readbytes == BUFFERSIZE);  //once readbytes is less than BUFFERSIZE eof was reached and we're finished.
 	
 
     printf("File transmission complete\n");
@@ -234,7 +237,7 @@ int main (int argc, char *argv[]) {
     /******* SHA-1 ********/
 
     //if we don't do this then valgrind on the receiver causes the program to slow down too much to still get this
-    sleep(1);
+    sleep(2);
     
     printf("Calculating Sha1...\n");
 
@@ -245,17 +248,17 @@ int main (int argc, char *argv[]) {
     
     
     //prepare transmitting of sha-1
-    buff[0] = SHA1_T;
+    //buff[0] = SHA1_T;
 
-    for(i = 1; i<SHA_DIGEST_LENGTH*2+1; i++)
+    for(i = 0; i<SHA_DIGEST_LENGTH*2; i++)
     {
-	buff[i] = shaVal[i-1];
+	buff[i] = shaVal[i];
     }
 
     //transmit sha-1
 	
-    err = write(sockfd, buff, SHA_DIGEST_LENGTH*2+1);
-    if( err != SHA_DIGEST_LENGTH*2+1 )
+    err = write(sockfd, buff, SHA_DIGEST_LENGTH*2);
+    if( err != SHA_DIGEST_LENGTH*2 )
     {
 	printf("Error when sending SHA1");
 	return 1;
@@ -273,20 +276,20 @@ int main (int argc, char *argv[]) {
 
     //receive sha comp result
     err = read(sockfd, buff, BUFFERSIZE);
-    if (err != 2)
+    if (err != 1)
     {
 	printf(timeout_error);
 	exit(1);
     }
 
     //check header
-    if((unsigned char)buff[0] !=  SHA1_CMP_T)
+    /*if((unsigned char)buff[0] !=  SHA1_CMP_T)
     {
 	printf(SHA1_ERROR);
-    }
+	}*/
 
     //check actual compare result
-    if( (unsigned char)buff[1]  == SHA1_CMP_ERROR)
+    if( (unsigned char)buff[0]  == SHA1_CMP_ERROR)
     {
 
 	printf(SHA1_ERROR);
@@ -317,17 +320,17 @@ void prepareHeader(char *buffer, unsigned short nlength, char *name, unsigned in
     unsigned short i,j;
 
     //TYPE-ID
-    buffer[0] = (char) HEADER_T;
+    //buffer[0] = (char) HEADER_T;
 
     //name-length
-    buffer[1] = (char) (nlength & 0xff);
-    buffer[2] = (char) ((nlength >> 8) & 0xff);
+    buffer[0] = (char) (nlength & 0xff);
+    buffer[1] = (char) ((nlength >> 8) & 0xff);
 
 
     //name
-    for(i=3; i<nlength+3; i++)
+    for(i=2; i<nlength+2; i++)
     {
-	buffer[i] = name[i-3];
+	buffer[i] = name[i-2];
     }
 
 
